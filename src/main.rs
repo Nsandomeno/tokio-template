@@ -21,7 +21,7 @@ async fn main() {
                 loop {
                     // Read the bytes from the steam to the buffer and return
                     // the number of bytes read
-                    let bytes_read = reader.read_line(&mut line).await.unwrap();
+                    let bytes_read = reader.read_line(&mut line).await.unwrap(); // this must be propogated for a chat server!
                     if bytes_read == 0 {
                         break;
                     }
