@@ -30,25 +30,30 @@ async fn main() {
                 let mut reader = BufReader::new(reader);
                 let mut line = String::new();
                 loop {
-                    // Read the bytes from the steam to the buffer and return
-                    // the number of bytes read
-                    let bytes_read = reader.read_line(&mut line).await.unwrap(); // this must be broadcast for a chat server!
-                    if bytes_read == 0 {
-                        break;
+                    tokio::select! {
+                        // Either "Send to" the broadcast channel end in the async task...
+                        result = reader.read_line(&mut line) => {
+                            // Read the bytes from the steam to the buffer and return
+                            // the number of bytes read
+                            if result.unwrap() == 0 {
+                                break;
+                            }
+                            // Sending the read line from the async task (sinc the sender of the broadcast channel was moved into the block) 
+                            tx.send(line.clone()).unwrap();
+                            line.clear();
+                        }
+                        // ... Or, "Receive from" the broadcast channel end in the async task
+                        result = rx.recv() => {
+                            let msg = result.unwrap();
+                            // Echo the entire contents back to the client
+                            // since the byte stream could be smaller than the size of the buffer,
+                            // we will use write_all to truncate the space in the buffer that was unused
+
+                            // Pass in the buffer as the source of data for the write back to the client
+                            // through the socket, up to the number of bytes previously read by the socket.
+                            writer.write_all(&mut msg.as_bytes()).await.unwrap();
+                        }
                     }
-                    // Sending the read line from the async task (sinc the sender of the broadcast channel was moved into the block) 
-                    tx.send(line.clone()).unwrap();
-
-                    // Receiving messages 
-                    let msg = rx.recv().await.unwrap();
-                    // Echo the entire contents back to the client
-                    // since the byte stream could be smaller than the size of the buffer,
-                    // we will use write_all to truncate the space in the buffer that was unused
-
-                    // Pass in the buffer as the source of data for the write back to the client
-                    // through the socket, up to the number of bytes previously read by the socket.
-                    writer.write_all(&mut msg.as_bytes()).await.unwrap();
-                    line.clear();
                 }
             });
     }
