@@ -1,5 +1,8 @@
 use tokio::net::{TcpListener};
-use tokio::io::{AsyncWriteExt, AsyncReadExt, BufReader, AsyncBufReadExt};
+use tokio::sync::{broadcast};
+use tokio::io::{AsyncWriteExt, BufReader, AsyncBufReadExt};
+
+const MAX_BROADCAST_CHANNELS: usize = 10;
 
 #[tokio::main]
 async fn main() {
@@ -7,6 +10,9 @@ async fn main() {
     // To explore, remove .await from end of line and check
     // type of listener.
     let listener = TcpListener::bind("localhost:5000").await.unwrap();
+    // Broadcast channel for chat server - multiple producers/consumers on a single channel
+    // In our case this means we have a sender/receiver for every async task
+    let (tx, rx) = broadcast::channel::<String>(MAX_BROADCAST_CHANNELS);
     // Loop that enables multiple clients to connect
     loop {
         // Accept a connection
@@ -21,7 +27,7 @@ async fn main() {
                 loop {
                     // Read the bytes from the steam to the buffer and return
                     // the number of bytes read
-                    let bytes_read = reader.read_line(&mut line).await.unwrap(); // this must be propogated for a chat server!
+                    let bytes_read = reader.read_line(&mut line).await.unwrap(); // this must be broadcast for a chat server!
                     if bytes_read == 0 {
                         break;
                     }
