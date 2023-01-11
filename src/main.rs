@@ -31,7 +31,7 @@ async fn main() {
                 let mut line = String::new();
                 loop {
                     // A common pattern is a select statement with 5 or 6 branches on it
-                    // that are all just gathering messages from different channels...
+                    // that are all just gathering messages from different channels
                     // and using some shared state.
                     tokio::select! {
                         // Either "Send to" the broadcast channel end in the async task...
