@@ -12,11 +12,11 @@ async fn main() {
     let listener = TcpListener::bind("localhost:5000").await.unwrap();
     // Broadcast channel for chat server - multiple producers/consumers on a single channel
     // In our case this means we have a sender/receiver for every async task
-    let (tx, _rx) = broadcast::channel::<String>(MAX_BROADCAST_CAPACITY);
+    let (tx, _rx) = broadcast::channel(MAX_BROADCAST_CAPACITY);
     // Loop that enables multiple clients to connect
     loop {
         // Accept a connection
-        let (mut socket, _addr) = listener.accept().await.unwrap();
+        let (mut socket, addr) = listener.accept().await.unwrap();
             // Clone the sender of the broadcast channel so that it can be moved into the async task
             let tx = tx.clone();
             // Subscribe to the broadcast sender with a receiver of the broadcast channel. Done so
@@ -30,6 +30,9 @@ async fn main() {
                 let mut reader = BufReader::new(reader);
                 let mut line = String::new();
                 loop {
+                    // A common pattern is a select statement with 5 or 6 branches on it
+                    // that are all just gathering messages from different channels...
+                    // and using some shared state.
                     tokio::select! {
                         // Either "Send to" the broadcast channel end in the async task...
                         result = reader.read_line(&mut line) => {
@@ -39,19 +42,21 @@ async fn main() {
                                 break;
                             }
                             // Sending the read line from the async task (sinc the sender of the broadcast channel was moved into the block) 
-                            tx.send(line.clone()).unwrap();
+                            tx.send((line.clone(), addr)).unwrap();
                             line.clear();
                         }
                         // ... Or, "Receive from" the broadcast channel end in the async task
                         result = rx.recv() => {
-                            let msg = result.unwrap();
+                            let (msg, sender_addr) = result.unwrap();
                             // Echo the entire contents back to the client
                             // since the byte stream could be smaller than the size of the buffer,
                             // we will use write_all to truncate the space in the buffer that was unused
 
                             // Pass in the buffer as the source of data for the write back to the client
                             // through the socket, up to the number of bytes previously read by the socket.
-                            writer.write_all(&mut msg.as_bytes()).await.unwrap();
+                            if addr != sender_addr { // If message is coming from another client
+                                writer.write_all(&mut msg.as_bytes()).await.unwrap();
+                            }
                         }
                     }
                 }
