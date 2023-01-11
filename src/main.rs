@@ -2,7 +2,7 @@ use tokio::net::{TcpListener};
 use tokio::sync::{broadcast};
 use tokio::io::{AsyncWriteExt, BufReader, AsyncBufReadExt};
 
-const MAX_BROADCAST_CHANNELS: usize = 10;
+const MAX_BROADCAST_CAPACITY: usize = 10;
 
 #[tokio::main]
 async fn main() {
@@ -12,7 +12,7 @@ async fn main() {
     let listener = TcpListener::bind("localhost:5000").await.unwrap();
     // Broadcast channel for chat server - multiple producers/consumers on a single channel
     // In our case this means we have a sender/receiver for every async task
-    let (tx, _rx) = broadcast::channel::<String>(MAX_BROADCAST_CHANNELS);
+    let (tx, _rx) = broadcast::channel::<String>(MAX_BROADCAST_CAPACITY);
     // Loop that enables multiple clients to connect
     loop {
         // Accept a connection
